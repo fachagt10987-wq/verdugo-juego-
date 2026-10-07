@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Desborde del Dique - Juego Interactivo OSSE</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        /* Dike & Water Visuals */
+        .water-animation {
+            transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .wave-bg {
+            background: linear-gradient(180deg, rgba(14, 165, 233, 0.85) 0%, rgba(3, 105, 161, 0.95) 100%);
+        }
+
+        @keyframes waveMotion {
+            0% { transform: translateX(0) scaleY(1); }
+            50% { transform: translateX(-25%) scaleY(1.1); }
+            100% { transform: translateX(-50%) scaleY(1); }
+        }
+
+        .wave-top {
+            animation: waveMotion 4s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulseAlert {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .alert-pulse {
+            animation: pulseAlert 0.8s infinite;
+        }
+
+        /* Keyboard Key States */
+        .key-btn {
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 0 0 rgba(0,0,0,0.2);
+        }
+        .key-btn:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 0 rgba(0,0,0,0.2);
+        }
+        .key-btn:disabled {
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: translateY(3px);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Navigation / Header -->
+    <header class="bg-slate-800 border-b border-slate-700 py-3 px-4 sm:px-8 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-cyan-500 text-slate-950 p-2.5 rounded-xl font-black text-2xl shadow-md">
+                    💧
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black tracking-tight text-cyan-400">EL DESBORDE DEL DIQUE</h1>
+                    <p class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Desafío Educativo de Agua y Sanidad - OSSE</p>
+                </div>
+            </div>
+
+            <!-- Global Controls -->
+            <div class="flex items-center space-x-3">
+                <button id="btnSoundToggle" onclick="toggleAudio()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-bold flex items-center gap-2 border border-slate-600 transition">
+                    <span id="soundIcon">🔊</span> <span id="soundText" class="hidden sm:inline">Sonido: ON</span>
+                </button>
+                <button onclick="confirmReset()" class="px-3 py-2 bg-rose-600/80 hover:bg-rose-600 text-white rounded-lg text-sm font-bold border border-rose-500 transition">
+                    🔄 Reiniciar Juego
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-7xl mx-auto w-full p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+        
+        <!-- Left & Center Column: Game Board & Interaction (8 cols) -->
+        <section class="lg:col-span-8 flex flex-col gap-6">
+            
+            <!-- Teams Scoreboard (4 Teams) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="teamsContainer">
+                <!-- Dynamic Teams Cards -->
+            </div>
+
+            <!-- Current Turn Info & Timer Header -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 sm:p-6 shadow-xl relative overflow-hidden flex flex-col sm:flex-row items-center justify-between gap-4">
+                
+                <!-- Current Team Badge -->
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <div>
+                        <span class="text-xs uppercase font-bold tracking-widest text-slate-400 block">TURNO ACTUAL</span>
+                        <h2 id="currentTeamName" class="text-2xl sm:text-3xl font-black text-cyan-300">Equipo 1</h2>
+                    </div>
+                    <span id="levelBadge" class="px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        Nivel Fácil
+                    </span>
+                </div>
+
+                <!-- Timer & Controls -->
+                <div class="flex items-center space-x-4 bg-slate-900/80 px-5 py-2.5 rounded-2xl border border-slate-700/80 w-full sm:w-auto justify-center">
+                    <div class="text-center">
+                        <span class="text-[10px] uppercase font-extrabold tracking-wider text-slate-400 block">TIEMPO</span>
+                        <div id="timerDisplay" class="text-3xl font-black text-amber-400 font-mono">01:00</div>
+                    </div>
+                    <button id="btnStartTurn" onclick="handleStartTurnClick()" class="ml-2 px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-sm rounded-xl shadow-lg transition transform active:scale-95">
+                        ▶ Iniciar Turno
+                    </button>
+                </div>
+            </div>
+
+            <!-- Word Display Container -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-6 sm:p-10 shadow-xl flex flex-col items-center justify-center min-h-[180px] relative">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">ADIVINA LA PALABRA / CONCEPTO OSSE</div>
+                <div id="wordDisplay" class="flex flex-wrap justify-center gap-2 sm:gap-3 my-2 text-2xl sm:text-4xl font-black tracking-widest text-center min-h-[50px]">
+                    <!-- Letters dynamically inserted here -->
+                </div>
+                <div id="wordHint" class="text-xs text-slate-400 mt-2 font-medium">
+                    Pistas de espacio y tildes preservadas
+                </div>
+            </div>
+
+            <!-- Virtual Keyboard -->
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 text-center">TECLADO DE LETRAS</div>
+                <div id="keyboard" class="flex flex-wrap justify-center gap-1.5 sm:gap-2">
+                    <!-- Dynamic Buttons -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Dike & Village Visualizer (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col">
+            <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-4 sm:p-5 shadow-xl flex-grow flex flex-col justify-between relative overflow-hidden">
+                
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold text-slate-200 text-base flex items-center gap-2">
+                            <span>🏞️</span> NIVEL DE AGUA DEL DIQUE
+                        </h3>
+                        <span id="errorCounter" class="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-700 text-slate-300 border border-slate-600">
+                            Fallos: 0 / 6
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Dike Visual Box -->
+                <div class="relative w-full h-[320px] sm:h-[380px] rounded-xl overflow-hidden border-4 border-slate-700 shadow-inner bg-slate-950">
+                    
+                    <!-- Village Real Image Background -->
+                    <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=800&q=80" 
+                         alt="Pueblo y Casas" 
+                         class="absolute inset-0 w-full h-full object-cover filter brightness-90">
+
+                    <!-- Water Level Layer -->
+                    <div id="waterFill" class="water-animation absolute bottom-0 left-0 right-0 wave-bg w-full h-[0%] z-10 flex flex-col justify-start">
+                        <!-- Wave Effect Top Border -->
+                        <div class="w-[200%] h-4 bg-cyan-300/40 -mt-3 wave-top"></div>
+                        <!-- Water Level Label -->
+                        <div class="p-2 text-center">
+                            <span id="waterPercentageText" class="text-xs font-extrabold bg-slate-900/80 text-cyan-200 px-2.5 py-0.5 rounded-full backdrop-blur-sm border border-cyan-500/30">
+                                Agua: 0%
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Dike Dam Concrete Structure Overlay (Right Wall) -->
+                    <div class="absolute right-0 top-0 bottom-0 w-12 sm:w-16 bg-gradient-to-l from-slate-700 via-slate-600 to-slate-800 border-l-2 border-slate-900 z-20 flex flex-col justify-between items-center py-4 opacity-90">
+                        <div class="w-full h-2 bg-slate-900 my-1"></div>
+                        <div class="w-full h-2 bg-slate-900 my-1"></div>
+                        <div class="w-full h-2 bg-slate-900 my-1"></div>
+                        <div class="w-full h-2 bg-slate-900 my-1"></div>
+                        <div class="w-full h-2 bg-slate-900 my-1"></div>
+                        <span class="text-[9px] font-black text-slate-400 rotate-90 tracking-widest whitespace-nowrap uppercase">MURO DEL DIQUE</span>
+                    </div>
+
+                    <!-- Flood Warning Overlay Effect -->
+                    <div id="floodAlertOverlay" class="absolute inset-0 bg-red-600/30 z-30 hidden alert-pulse pointer-events-none flex items-center justify-center">
+                        <span class="bg-red-700 text-white font-black text-xl px-4 py-2 rounded-xl shadow-2xl border-2 border-white uppercase tracking-wider">
+                            ¡DESBORDE INMINENTE!
+                        </span>
+                    </div>
+
+                </div>
+
+                <!-- Status Text below Dike -->
+                <div class="mt-4 text-center bg-slate-900/60 p-3 rounded-xl border border-slate-700/60">
+                    <p id="dikeStatusText" class="text-xs text-slate-300 font-medium">
+                        El dique está en niveles seguros. Adivina las letras correctamente para mantener el caudal controlado.
+                    </p>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Dialog for Turn Alerts & Notifications -->
+    <div id="gameModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border-2 border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl text-center transform transition-all scale-100">
+            <div id="modalIcon" class="text-5xl mb-3">📢</div>
+            <h3 id="modalTitle" class="text-2xl font-black text-white mb-2">¡Atención!</h3>
+            <p id="modalMessage" class="text-sm text-slate-300 mb-6 leading-relaxed">
+                Mensaje del juego...
+            </p>
+            <button id="modalActionBtn" onclick="closeModal()" class="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black rounded-xl text-sm transition shadow-lg">
+                Entendido / Continuar
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-3 text-center text-xs text-slate-500">
+        Juego Educativo OSSE &bull; Concientización del Agua y Redes Sanitarias
+    </footer>
+
+    <script>
+        /* --- GAME DATA & CONFIGURATION --- */
+        const INITIAL_WORD_CATEGORIES = {
+            facil: ["AGUA", "POTABLE", "CAPTACIÓN", "CALIDAD", "CAÑERÍA", "VIVIENDA", "TANQUE", "OSSE"],
+            medio: ["POTABILIZACIÓN", "ALMACENAMIENTO", "DISTRIBUCIÓN", "CONEXIÓN", "SEGURIDAD", "CONSUMO", "TRATAMIENTO", "ABASTECIMIENTO"],
+            dificil: ["MICROORGANISMOS", "CONTAMINANTES", "PRESTADOR", "RED DE DISTRIBUCIÓN", "PLANTA POTABILIZADORA", "CONEXIÓN DOMICILIARIA"]
+        };
+
+        // Bank that gets dynamically depleted as words are solved
+        let wordCategories = {};
+
+        const KEYBOARD_LETTERS = [
+            'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+            'N', 'Ñ', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'
+        ];
+
+        let teams = [
+            { id: 1, name: "Equipo 1", lives: 2, level: "facil", score: 0, active: true },
+            { id: 2, name: "Equipo 2", lives: 2, level: "facil", score: 0, active: true },
+            { id: 3, name: "Equipo 3", lives: 2, level: "facil", score: 0, active: true },
+            { id: 4, name: "Equipo 4", lives: 2, level: "facil", score: 0, active: true }
+        ];
+
+        let currentTeamIdx = 0;
+        let currentWord = "";
+        let normalizedWord = "";
+        let guessedLetters = new Set();
+        let currentErrors = 0;
+        const maxErrors = 6;
+        
+        let timerSeconds = 60;
+        let timerInterval = null;
+        let isTurnActive = false;
+        let audioEnabled = true;
+
+        /* --- WEB AUDIO API SYNTHESIZER --- */
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioEnabled) return;
+            try {
+                initAudio();
+                const now = audioCtx.currentTime;
+
+                if (type === 'correct') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.1); // E5
+                    osc.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+
+                } else if (type === 'wrong') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+
+                } else if (type === 'water') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.linearRampToValueAtTime(240, now + 0.4);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+
+                } else if (type === 'tick') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(800, now);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+
+                } else if (type === 'flood') {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.linearRampToValueAtTime(800, now + 0.3);
+                    osc.frequency.linearRampToValueAtTime(400, now + 0.6);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+                }
+            } catch (e) {
+                console.log("Audio no soportado");
+            }
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('soundIcon').innerText = audioEnabled ? '🔊' : '🔇';
+            document.getElementById('soundText').innerText = audioEnabled ? 'Sonido: ON' : 'Sonido: OFF';
+        }
+
+        /* --- HELPER FUNCTIONS --- */
+        function normalizeText(text) {
+            return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+        }
+
+        /* --- GAME LOGIC & TURN MANAGEMENT --- */
+        function initGame() {
+            // Deep clone word categories to support word removal
+            wordCategories = {
+                facil: [...INITIAL_WORD_CATEGORIES.facil],
+                medio: [...INITIAL_WORD_CATEGORIES.medio],
+                dificil: [...INITIAL_WORD_CATEGORIES.dificil]
+            };
+            renderTeams();
+            renderKeyboard();
+            prepareTurnUI();
+        }
+
+        function renderTeams() {
+            const container = document.getElementById('teamsContainer');
+            container.innerHTML = '';
+
+            teams.forEach((team, index) => {
+                const isActiveTurn = index === currentTeamIdx;
+                const isEliminated = team.lives <= 0;
+
+                let cardBg = "bg-slate-800/80 border-slate-700";
+                if (isActiveTurn && !isEliminated) {
+                    cardBg = "bg-cyan-950/60 border-cyan-500 ring-2 ring-cyan-500/50";
+                } else if (isEliminated) {
+                    cardBg = "bg-rose-950/30 border-rose-900/50 opacity-60";
+                }
+
+                const card = document.createElement('div');
+                card.className = `p-3.5 rounded-xl border transition-all ${cardBg} flex flex-col justify-between`;
+
+                const hearts = isEliminated ? '💀 Eliminado' : '❤️'.repeat(team.lives) + '🖤'.repeat(2 - team.lives);
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="font-bold text-sm ${isActiveTurn ? 'text-cyan-300' : 'text-slate-200'}">${team.name}</span>
+                        <span class="text-xs font-semibold text-slate-400 uppercase">${team.level}</span>
+                    </div>
+                    <div class="text-xs mb-2">${hearts}</div>
+                    <div class="flex justify-between items-center text-[11px] font-bold text-slate-400 bg-slate-900/50 p-1.5 rounded-lg">
+                        <span>Progreso:</span>
+                        <span class="text-emerald-400">${team.score}/2 Nivel</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function renderKeyboard() {
+            const kb = document.getElementById('keyboard');
+            kb.innerHTML = '';
+
+            KEYBOARD_LETTERS.forEach(letter => {
+                const btn = document.createElement('button');
+                btn.innerText = letter;
+                btn.className = 'key-btn w-9 h-11 sm:w-11 sm:h-12 bg-slate-700 hover:bg-cyan-600 text-white font-black text-base sm:text-lg rounded-xl border border-slate-600 transition disabled:bg-slate-900 disabled:border-slate-800 disabled:text-slate-600';
+                btn.id = `key-${letter}`;
+                btn.disabled = true;
+                btn.onclick = () => handleLetterGuess(letter);
+                kb.appendChild(btn);
+            });
+        }
+
+        function prepareTurnUI() {
+            const team = teams[currentTeamIdx];
+
+            if (team.lives <= 0) {
+                nextTurn();
+                return;
+            }
+
+            document.getElementById('currentTeamName').innerText = team.name;
+            
+            const badge = document.getElementById('levelBadge');
+            if (team.level === 'facil') {
+                badge.className = "px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                badge.innerText = "Nivel Fácil";
+            } else if (team.level === 'medio') {
+                badge.className = "px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                badge.innerText = "Nivel Medio";
+            } else {
+                badge.className = "px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/30";
+                badge.innerText = "Nivel Difícil";
+            }
+
+            isTurnActive = false;
+            currentErrors = 0;
+            guessedLetters.clear();
+            updateDikeVisuals();
+            resetTimerUI();
+            
+            // Refill category if all words were already guessed and removed
+            if (wordCategories[team.level].length === 0) {
+                wordCategories[team.level] = [...INITIAL_WORD_CATEGORIES[team.level]];
+            }
+
+            const pool = wordCategories[team.level];
+            currentWord = pool[Math.floor(Math.random() * pool.length)];
+            normalizedWord = normalizeText(currentWord);
+
+            renderWordHidden();
+            disableKeyboard(true);
+
+            document.getElementById('btnStartTurn').style.display = 'inline-block';
+            renderTeams();
+        }
+
+        function handleStartTurnClick() {
+            initAudio();
+            isTurnActive = true;
+            document.getElementById('btnStartTurn').style.display = 'none';
+            enableKeyboard();
+            startTimer();
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerSeconds = 60;
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                if (!isTurnActive) return;
+                timerSeconds--;
+                updateTimerDisplay();
+
+                if (timerSeconds <= 10 && timerSeconds > 0) {
+                    playSound('tick');
+                }
+
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    handleTimeExpired();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const display = document.getElementById('timerDisplay');
+            const secs = timerSeconds < 10 ? `0${timerSeconds}` : timerSeconds;
+            display.innerText = `00:${secs}`;
+
+            if (timerSeconds <= 10) {
+                display.className = "text-3xl font-black text-rose-500 font-mono alert-pulse";
+            } else {
+                display.className = "text-3xl font-black text-amber-400 font-mono";
+            }
+        }
+
+        function resetTimerUI() {
+            clearInterval(timerInterval);
+            timerSeconds = 60;
+            const display = document.getElementById('timerDisplay');
+            display.innerText = "01:00";
+            display.className = "text-3xl font-black text-amber-400 font-mono";
+        }
+
+        function renderWordHidden() {
+            const display = document.getElementById('wordDisplay');
+            display.innerHTML = '';
+
+            for (let i = 0; i < currentWord.length; i++) {
+                const char = currentWord[i];
+                const normChar = normalizedWord[i];
+
+                const box = document.createElement('div');
+
+                if (char === ' ') {
+                    box.className = "w-6 h-10 border-b-2 border-transparent mx-1";
+                } else {
+                    box.className = "w-9 h-12 sm:w-12 sm:h-14 bg-slate-900 border-2 border-slate-600 rounded-xl flex items-center justify-center font-black text-cyan-300 shadow-md";
+                    
+                    if (isTurnActive && (guessedLetters.has(normChar) || !isTurnActive)) {
+                        box.innerText = char;
+                        box.classList.add('border-cyan-500', 'bg-cyan-950/40');
+                    } else {
+                        box.innerText = '_';
+                        box.classList.add('text-slate-600');
+                    }
+                }
+                display.appendChild(box);
+            }
+        }
+
+        function enableKeyboard() {
+            KEYBOARD_LETTERS.forEach(letter => {
+                const btn = document.getElementById(`key-${letter}`);
+                if (btn) btn.disabled = false;
+            });
+        }
+
+        function disableKeyboard(resetKeys = false) {
+            KEYBOARD_LETTERS.forEach(letter => {
+                const btn = document.getElementById(`key-${letter}`);
+                if (btn) {
+                    btn.disabled = true;
+                    if (resetKeys) {
+                        btn.className = 'key-btn w-9 h-11 sm:w-11 sm:h-12 bg-slate-700 hover:bg-cyan-600 text-white font-black text-base sm:text-lg rounded-xl border border-slate-600 transition disabled:bg-slate-900 disabled:border-slate-800 disabled:text-slate-600';
+                    }
+                }
+            });
+        }
+
+        function handleLetterGuess(letter) {
+            if (!isTurnActive) return;
+
+            const btn = document.getElementById(`key-${letter}`);
+            if (btn) btn.disabled = true;
+
+            guessedLetters.add(letter);
+
+            if (normalizedWord.includes(letter)) {
+                playSound('correct');
+                if (btn) btn.className += ' bg-emerald-600 text-white border-emerald-500';
+                renderWordHidden();
+                checkWordSolved();
+            } else {
+                playSound('wrong');
+                if (btn) btn.className += ' bg-rose-600 text-white border-rose-500';
+                currentErrors++;
+                updateDikeVisuals();
+
+                if (currentErrors >= maxErrors) {
+                    handleDikeOverflow();
+                }
+            }
+        }
+
+        function updateDikeVisuals() {
+            const percentage = Math.min(100, Math.round((currentErrors / maxErrors) * 100));
+            const fill = document.getElementById('waterFill');
+            const percentText = document.getElementById('waterPercentageText');
+            const errorCounter = document.getElementById('errorCounter');
+            const floodOverlay = document.getElementById('floodAlertOverlay');
+            const statusText = document.getElementById('dikeStatusText');
+
+            fill.style.height = `${percentage}%`;
+            percentText.innerText = `Nivel de Agua: ${percentage}%`;
+            errorCounter.innerText = `Fallos: ${currentErrors} / ${maxErrors}`;
+
+            if (currentErrors > 0 && currentErrors < maxErrors) {
+                playSound('water');
+            }
+
+            if (percentage >= 100) {
+                floodOverlay.classList.remove('hidden');
+                statusText.innerText = "¡ALERTA MÁXIMA! El dique se ha desbordado y el agua inunda las zonas cercanas.";
+                statusText.className = "text-xs text-rose-400 font-bold animate-pulse";
+            } else if (percentage >= 66) {
+                floodOverlay.classList.add('hidden');
+                statusText.innerText = "¡Precaución! El nivel del agua está muy alto. Un fallo más puede ser fatal.";
+                statusText.className = "text-xs text-amber-400 font-semibold";
+            } else {
+                floodOverlay.classList.add('hidden');
+                statusText.innerText = "El dique está en niveles seguros. Adivina las letras correctamente para mantener el caudal controlado.";
+                statusText.className = "text-xs text-slate-300 font-medium";
+            }
+        }
+
+        function checkWordSolved() {
+            let isComplete = true;
+            for (let i = 0; i < normalizedWord.length; i++) {
+                const char = normalizedWord[i];
+                if (char !== ' ' && !guessedLetters.has(char)) {
+                    isComplete = false;
+                    break;
+                }
+            }
+
+            if (isComplete) {
+                isTurnActive = false;
+                clearInterval(timerInterval);
+                disableKeyboard();
+
+                const team = teams[currentTeamIdx];
+                
+                // --- MECÁNICA DE SELECCIÓN ÚNICA ---
+                // Descartar palabra acertada del banco para que NO vuelva a salir
+                const levelPool = wordCategories[team.level];
+                const wordIndex = levelPool.indexOf(currentWord);
+                if (wordIndex !== -1) {
+                    levelPool.splice(wordIndex, 1);
+                }
+
+                team.score++;
+                
+                let levelUpMsg = "";
+                if (team.score >= 2) {
+                    team.score = 0;
+                    if (team.level === 'facil') {
+                        team.level = 'medio';
+                        levelUpMsg = " 🌟 ¡FELICITACIONES! Han ascendido al NIVEL MEDIO.";
+                    } else if (team.level === 'medio') {
+                        team.level = 'dificil';
+                        levelUpMsg = " 🔥 ¡INCREMENTO DE DESAFÍO! Han ascendido al NIVEL DÍFICIL.";
+                    } else {
+                        levelUpMsg = " 🏆 ¡HAN COMPLETADO EL NIVEL MÁXIMO CON ÉXITO!";
+                    }
+                }
+
+                playSound('correct');
+                showModal(
+                    "¡PALABRA CORRECTA! 🎉",
+                    `¡Excelente trabajo ${team.name}! Adivinaron la palabra "${currentWord}" correctamente y mantuvieron seguro el dique.${levelUpMsg}`,
+                    "🟢",
+                    () => { nextTurn(); }
+                );
+            }
+        }
+
+        function handleDikeOverflow() {
+            isTurnActive = false;
+            clearInterval(timerInterval);
+            disableKeyboard();
+            playSound('flood');
+
+            const team = teams[currentTeamIdx];
+            team.lives--;
+
+            let lifeMsg = team.lives <= 0 ? 
+                ` 💀 ${team.name} ha perdido todas sus vidas y queda ELIMINADO del juego.` : 
+                ` ❤️ Le queda ${team.lives} vida restante.`;
+
+            showModal(
+                "¡DESBORDE DEL DIQUE! 🌊",
+                `Se han consumido los 6 intentos. El dique se desbordó e inundó la zona. ${team.name} pierde 1 vida.${lifeMsg}`,
+                "🌊",
+                () => { nextTurn(); }
+            );
+        }
+
+        function handleTimeExpired() {
+            isTurnActive = false;
+            disableKeyboard();
+            playSound('wrong');
+
+            const team = teams[currentTeamIdx];
+
+            showModal(
+                "¡TIEMPO AGOTADO! ⏱️",
+                `Se terminó el minuto de tiempo para ${team.name}. Pasa el turno pero NO pierden vida. (La palabra se mantiene en secreto para futuras rondas).`,
+                "⏰",
+                () => { nextTurn(); }
+            );
+        }
+
+        function nextTurn() {
+            let activeTeamsCount = teams.filter(t => t.lives > 0).length;
+
+            if (activeTeamsCount === 0) {
+                showModal(
+                    "¡JUEGO TERMINADO! 🏁",
+                    "Todos los equipos han sido eliminados. El dique no pudo ser controlado.",
+                    "☠️",
+                    () => { resetGame(); }
+                );
+                return;
+            }
+
+            do {
+                currentTeamIdx = (currentTeamIdx + 1) % teams.length;
+            } while (teams[currentTeamIdx].lives <= 0);
+
+            prepareTurnUI();
+        }
+
+        /* --- MODAL DIALOGS --- */
+        function showModal(title, message, icon = "📢", onCloseCallback = null) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('modalIcon').innerText = icon;
+            
+            const modal = document.getElementById('gameModal');
+            modal.classList.remove('hidden');
+
+            const btn = document.getElementById('modalActionBtn');
+            btn.onclick = () => {
+                modal.classList.add('hidden');
+                if (onCloseCallback) onCloseCallback();
+            };
+        }
+
+        function closeModal() {
+            document.getElementById('gameModal').classList.add('hidden');
+        }
+
+        function confirmReset() {
+            if (confirm("¿Estás seguro de reiniciar el juego y volver a comenzar con todos los equipos?")) {
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            teams = [
+                { id: 1, name: "Equipo 1", lives: 2, level: "facil", score: 0, active: true },
+                { id: 2, name: "Equipo 2", lives: 2, level: "facil", score: 0, active: true },
+                { id: 3, name: "Equipo 3", lives: 2, level: "facil", score: 0, active: true },
+                { id: 4, name: "Equipo 4", lives: 2, level: "facil", score: 0, active: true }
+            ];
+            currentTeamIdx = 0;
+            initGame();
+        }
+
+        /* --- START ON LOAD --- */
+        window.onload = () => {
+            initGame();
+        };
+    </script>
+</body>
+</html>
